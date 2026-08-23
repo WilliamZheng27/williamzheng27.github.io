@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>行程天气</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+    #frame{position:absolute;left:0;top:0;border:0;display:block;transform-origin:0 0;background:transparent}
+  </style>
+</head>
+<body>
+  <iframe id="frame" title="行程天气预报" scrolling="no"></iframe>
+  <script>
+    const frame=document.getElementById('frame');
+    const params=new URLSearchParams(location.search);
+    params.delete('fit');
+    params.set('embedded','1');
+    params.set('v','compact-20260823');
+    frame.src='./index.html?'+params.toString();
+
+    function fit(){
+      const viewportWidth=Math.max(1,window.innerWidth);
+      const viewportHeight=Math.max(1,window.innerHeight);
+      const baseHeight=520;
+      const minimumLayoutWidth=700;
+      const scale=Math.min(1,viewportHeight/baseHeight,viewportWidth/minimumLayoutWidth);
+      const safeScale=Math.max(0.42,scale);
+      frame.style.width=(viewportWidth/safeScale)+'px';
+      frame.style.height=baseHeight+'px';
+      frame.style.transform='scale('+safeScale+')';
+    }
+
+    new ResizeObserver(fit).observe(document.documentElement);
+    window.addEventListener('resize',fit);
+    fit();
+  </script>
+</body>
+</html>
