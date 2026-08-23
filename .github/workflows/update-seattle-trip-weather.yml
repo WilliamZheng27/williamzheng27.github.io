@@ -1,0 +1,72 @@
+name: Update Seattle trip weather snapshot
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/update-seattle-trip-weather.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Open-Meteo forecast
+        run: |
+          python - <<'PY'
+          import json, urllib.parse, urllib.request
+          from datetime import datetime, timezone
+
+          places = {
+            'hongkong': {'name':'香港 HKG','lat':22.3193,'lon':114.1694,'elevation':10,'kind':'city'},
+            'seatac': {'name':'SeaTac / SEA','lat':47.4502,'lon':-122.3088,'elevation':132,'kind':'city'},
+            'sammamish': {'name':'Sammamish','lat':47.6163,'lon':-122.0356,'elevation':165,'kind':'city'},
+            'snohomish': {'name':'Twin Willow Gardens / Snohomish','lat':47.9129,'lon':-122.0982,'elevation':35,'kind':'event'},
+            'bellevue': {'name':'Bellevue','lat':47.6101,'lon':-122.2015,'elevation':26,'kind':'city'},
+            'medina': {'name':'Medina','lat':47.6209,'lon':-122.2276,'elevation':19,'kind':'city'},
+            'uw': {'name':'University of Washington','lat':47.6553,'lon':-122.3035,'elevation':35,'kind':'city'},
+            'seattle': {'name':'Seattle','lat':47.6062,'lon':-122.3321,'elevation':56,'kind':'city'},
+            'enumclaw': {'name':'Enumclaw','lat':47.2043,'lon':-121.9915,'elevation':232,'kind':'city'},
+            'sunrise': {'name':'Sunrise Visitor Center','lat':46.914466,'lon':-121.643404,'elevation':1950,'kind':'mountain'},
+            'reflection': {'name':'Reflection Lakes','lat':46.769519,'lon':-121.729990,'elevation':1481,'kind':'mountain'},
+            'paradise': {'name':'Paradise / Jackson Visitor Center','lat':46.785887,'lon':-121.736573,'elevation':1653,'kind':'mountain'},
+            'myrtle': {'name':'Myrtle Falls','lat':46.79122,'lon':-121.73234,'elevation':1681,'kind':'mountain'},
+            'olympia': {'name':'Olympia','lat':47.0379,'lon':-122.9007,'elevation':29,'kind':'city'},
+            'quinault': {'name':'Lake Quinault','lat':47.46695,'lon':-123.84829,'elevation':64,'kind':'forest'},
+            'ruby': {'name':'Ruby Beach','lat':47.7108,'lon':-124.4156,'elevation':5,'kind':'coast'},
+            'hoh': {'name':'Hoh Rain Forest','lat':47.8609,'lon':-123.9348,'elevation':175,'kind':'forest'},
+            'forks': {'name':'Forks','lat':47.9504,'lon':-124.3855,'elevation':91,'kind':'city'},
+            'crescent': {'name':'Lake Crescent','lat':48.0570,'lon':-123.7908,'elevation':178,'kind':'lake'},
+            'marymere': {'name':'Marymere Falls','lat':48.0562,'lon':-123.7878,'elevation':210,'kind':'forest'},
+            'portangeles': {'name':'Port Angeles','lat':48.1181,'lon':-123.4307,'elevation':22,'kind':'city'},
+            'hurricane': {'name':'Hurricane Ridge','lat':47.96918,'lon':-123.49848,'elevation':1599,'kind':'mountain'},
+            'desmoines': {'name':'Des Moines / SEA 附近','lat':47.4018,'lon':-122.3243,'elevation':28,'kind':'city'},
+          }
+          daily = ','.join(['weather_code','temperature_2m_max','temperature_2m_min','apparent_temperature_max','apparent_temperature_min','precipitation_sum','precipitation_probability_max','wind_speed_10m_max','wind_gusts_10m_max','uv_index_max'])
+          out = {'generated_at': datetime.now(timezone.utc).isoformat(), 'source':'Open-Meteo', 'places':places, 'forecast':{}}
+          for key, p in places.items():
+            q = urllib.parse.urlencode({
+              'latitude':p['lat'],'longitude':p['lon'],'elevation':p['elevation'],
+              'daily':daily,'temperature_unit':'celsius','wind_speed_unit':'ms',
+              'precipitation_unit':'mm','timezone':'auto','forecast_days':16,
+            })
+            url = 'https://api.open-meteo.com/v1/forecast?' + q
+            with urllib.request.urlopen(url, timeout=30) as r:
+              out['forecast'][key] = json.load(r)
+          path='weather/seattle-trip-2026/snapshot.json'
+          with open(path,'w',encoding='utf-8') as f:
+            json.dump(out,f,ensure_ascii=False,separators=(',',':'))
+          PY
+      - name: Commit snapshot
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add weather/seattle-trip-2026/snapshot.json
+          git diff --cached --quiet || git commit -m 'Update Seattle trip weather snapshot'
+          git push
